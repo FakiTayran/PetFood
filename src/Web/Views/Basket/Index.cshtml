@@ -1,0 +1,108 @@
+﻿@model BasketViewModel
+@{ 
+    ViewBag.Title = "Basket";
+}
+<h1>Basket</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <table class="table table-basket">
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                <tr>
+                    <td>
+                        <img src="~/images/@item.PictureUri" alt="" width="50" height="50" />
+                    </td>
+                    <td>
+                        @item.ProductName
+                    </td>
+                    <td>
+                        <input type="number" class="form-control quantity" min="1" max="999" size="3" value="@item.Quantity" data-update-quantity="@item.ProductId" />
+                    </td>
+                    <td data-product-price="@item.ProductId">
+                        @string.Format("${0:0.00}", item.Quantity * item.UnitPrice)
+                    </td>
+                    <td>
+                        <button class="btn btn-outline-danger btn-sm" data-toggle="tooltip" title="Remove item from the basket" data-remove-item="@item.ProductId"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="col-md-4">
+        <div class="card py-3 bg-light">
+            <div class="card-body">
+                <div class="display-1 text-center py-2"s>
+                    <i class="fas fa-shopping-basket"></i>
+                </div>
+                <h2 class="text-center mb-5 mt-3">
+                    Total: <span class="totalPrice">@string.Format("${0:0.00}", Model.Total())</span>
+                </h2>
+                <a asp-controller="Home" asp-action="Index" class="btn btn-warning btn-block">Continue to Shopping</a>
+                <a asp-controller="Basket" asp-action="Checkout" class="btn btn-success btn-block">Proceed to Checkout</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section scripts{ 
+    <script>
+        $('[data-toggle="tooltip"]').tooltip();
+        $("input[data-update-quantity]").on("input", function () {
+            //case of copy/paste
+            if (this.value < 1) this.value = 1;
+
+            var productId = $(this).data("update-quantity");
+            var quantity = this.value;
+
+            $.ajax({
+                url: "@Url.Action("UpdateQuantity","Basket")",
+                type: "post",
+                data: { productId: productId, quantity: quantity },
+                success: function (data) {
+                    $(".totalPrice").text(data.totalPrice);
+                    $('[data-product-price="' + productId + '"]').text(data.productPrice);
+                }
+            });
+
+        });
+
+         $("button[data-remove-item]").on("click", function () {
+
+            var btn = this;
+            var productId = $(this).data("remove-item");
+            var quantity = 0;
+
+            $.ajax({
+                url: "@Url.Action("UpdateQuantity","Basket")",
+                type: "post",
+                data: { productId: productId, quantity: quantity },
+                success: function (data) {
+                    //update total price
+                    $(".totalPrice").text(data.totalPrice);
+
+                    //dispose tooltip before removing product
+                    $(btn).tooltip("dispose");
+
+                    //delete table now
+                    $(btn).closest("tr").remove();
+
+                    //update total item count
+                    $("[data-basket-item-count]").text(data.basketItemsCount);
+
+                    toastr.success("Product Removed From Basket")
+                }
+            });
+
+        });
+
+        //the user cannnot input negative/decimal numbers
+        $("input[data-update-quantity]").on("keydown", function (event) {
+            if (event.key === "." || event.key === "," || event.key ==="-")
+                event.preventDefault();
+        });
+    </script>
+
+}

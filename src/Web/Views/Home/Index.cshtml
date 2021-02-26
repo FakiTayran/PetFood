@@ -1,0 +1,62 @@
+﻿@model HomeIndexViewModel
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<form class="form-inline my-3">
+    <label asp-for="CategoryId">Category</label>
+    <select class="form-control ml-2" asp-for="CategoryId" asp-items="Model.Categories">
+        <option>All</option>
+    </select>
+    <label class="ml-3" asp-for="BrandId">Brand</label>
+    <select class="form-control ml-2" asp-for="BrandId" asp-items="Model.Brands">
+        <option>All</option>
+    </select>
+</form>
+
+@*https://getbootstrap.com/docs/4.6/components/card/#kitchen-sink*@
+<div class="row">
+    @foreach (var product in Model.Products)
+    {
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card mb-4">
+                <img src="~/images/@product.PictureUri" class="card-img-top" alt="@product.Name">
+                <div class="card-body">
+                    <p class="home-product-name">@product.Name</p>
+                    <form method="post" class="d-flex align-items-baseline" data-add-to-basket="">
+                        <p class="home-product-price">$@product.Price.ToString("n2")</p>
+                        <input type="hidden" name="id" value="@product.Id" />
+                        <button type="submit" class="btn btn-success card-link ml-auto">
+                            <i class="fas fa-cart-plus"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<partial name="_pagination" model="Model.PaginationInfo" />
+
+@section scripts {
+    <script>
+        $("form[data-add-to-basket]").submit(function (event) {
+            event.preventDefault();
+            var frm = this;
+
+            $.ajax({
+                type: "post",
+                url: "@Url.Action("AddToBasket", "Basket")",
+                data: $(frm).serialize(),
+                success: function (data) {
+                    toastr.success("The selected product has been successfully added to the basket.")
+                    $("[data-basket-item-count]").text(data.basketItemCount);
+                }
+            });
+        });
+
+        $("#BrandId, #CategoryId").change(function () {
+            $(this).closest("form").submit();
+        });
+    </script>
+} 
