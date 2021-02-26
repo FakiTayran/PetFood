@@ -13,5 +13,6 @@ namespace Web.Interfaces
 
         Task<BasketUpdateQuantityViewModel> UpdateQuantity(string userId,int productId,int quantity);
 
+        Task TransferBasketAsync(string userName);
     }
 }

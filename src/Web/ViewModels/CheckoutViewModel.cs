@@ -55,7 +55,7 @@ namespace Web.ViewModels
         [MaxLength(4)]
         public string CCCvv { get; set; }
         [Display(Name = "Expiration")]
-        [RegularExpression("^[0-9]{2}[0-9]{2}$", ErrorMessage = "Invalid Expiration Date")]
+        [RegularExpression("^[0-9]{2}/[0-9]{2}$", ErrorMessage = "Invalid Expiration Date")]
         [Required]
         [MaxLength(5)]
         public string CCExpiration { get; set; }
@@ -64,6 +64,10 @@ namespace Web.ViewModels
 
         [Display(Name = "Payment Total")]
         public decimal PaymentTotal { get; set; }
+
+        public string BasketItemsJson { get; set; }
+
+        public int BasketId { get; set; }
 
     }
 }

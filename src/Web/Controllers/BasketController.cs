@@ -1,5 +1,7 @@
-﻿using ApplicationCore.Interfaces;
+﻿using ApplicationCore.Entities;
+using ApplicationCore.Interfaces;
 using Infrastructure.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Web.Interfaces;
 using Web.ViewModels;
@@ -18,12 +21,14 @@ namespace Web.Controllers
         private readonly IBasketViewModelService _basketViewModelService;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IBasketService _basketService;
+        private readonly IOrderService _orderService;
 
-        public BasketController(IBasketViewModelService basketViewModelService, SignInManager<ApplicationUser> signInManager, IBasketService basketService)
+        public BasketController(IBasketViewModelService basketViewModelService, SignInManager<ApplicationUser> signInManager, IBasketService basketService,IOrderService orderService)
         {
             _basketViewModelService = basketViewModelService;
             _signInManager = signInManager;
             _basketService = basketService;
+            this._orderService = orderService;
         }
 
         public async Task<IActionResult> Index()
@@ -58,22 +63,67 @@ namespace Web.Controllers
         public async Task<IActionResult> UpdateQuantity(int productId, int quantity)
         {
             var userId = GetOrCreateUserId();
-            
-            return Json(await _basketViewModelService.UpdateQuantity(userId,productId,quantity));
+
+            return Json(await _basketViewModelService.UpdateQuantity(userId, productId, quantity));
         }
 
+        [Authorize]
         public async Task<IActionResult> Checkout()
         {
-            return View();
+            var vm = await CreateCheckoutViewModel();
+            return View(vm);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize]
         public async Task<IActionResult> Checkout(CheckoutViewModel vm)
         {
+            var newVm = await CreateCheckoutViewModel();
+            if (vm.BasketItemsJson != newVm.BasketItemsJson)
+            {
+                ModelState.AddModelError("BasketItemsJson", "Your basket has been updated.Please review the items before making a payment.");
+                ModelState.Remove("BasketItemJson"); // renew its valur and get it from newVm 
+            }
+            if (ModelState.IsValid)
+            {
+                //receive the payment
+
+                //process the order
+                var address = new Address()
+                {
+                    City = vm.City,
+                    Country = vm.Country,
+                    State = vm.State,
+                    Street = vm.Street,
+                    ZipCode = vm.ZipCode
+                };
+                int orderId=await _orderService.CreateOrderAsync(newVm.BasketId, vm.FirstName, vm.LastName,address);
+
+                //delete the basket
+                await _basketService.DeleteBasketAsync(newVm.BasketId);
+                //redirect to success page
+                return RedirectToAction("Success",new {orderId = orderId });
+            }
+            vm.BasketItems = newVm.BasketItems;
+            vm.PaymentTotal = newVm.PaymentTotal;
+            vm.BasketItemsJson = newVm.BasketItemsJson;
             return View(vm);
         }
 
+        public async Task<IActionResult> Success(int orderId)
+        {
+            ViewBag.OrderId = orderId;
+            return View();
+        }
+
+        private async Task<CheckoutViewModel> CreateCheckoutViewModel()
+        {
+            string userId = GetOrCreateUserId();
+            var basket = await _basketViewModelService.GetBasket(userId);
+            return new CheckoutViewModel() { BasketId=basket.Id,BasketItems = basket.Items, PaymentTotal = basket.Total(), BasketItemsJson = JsonSerializer.Serialize(basket.Items) };
+
+        }
         private string GetOrCreateUserId()
         {
             if (_signInManager.IsSignedIn(User))
